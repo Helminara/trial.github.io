@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="id" data-theme="light" style="color-scheme: light;"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jadwal Gym</title>
+<style>
+:root{--bg:#f6f7f9;--fg:#1c1f24;--card:#fff;--muted:#6b7280;--line:#e5e7eb;--green:#22a55b;--red:#e5484d;--btn:#1c1f24;--btnfg:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111317;--fg:#eceef1;--card:#1a1d23;--muted:#9aa1ad;--line:#2b2f37;--green:#2fb86a;--red:#ef5a5f;--btn:#eceef1;--btnfg:#111317}}
+:root[data-theme="dark"]{--bg:#111317;--fg:#eceef1;--card:#1a1d23;--muted:#9aa1ad;--line:#2b2f37;--green:#2fb86a;--red:#ef5a5f;--btn:#eceef1;--btnfg:#111317}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 40px}
+h1{margin:0 0 4px;font-size:24px}
+.sub{color:var(--muted);font-size:14px;margin-bottom:16px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+.stat b{font-size:16px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.sp{flex:1}
+.btn{background:var(--btn);color:var(--btnfg);border:0;border-radius:10px;padding:9px 14px;font-size:14px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.scroll{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px}
+table{border-collapse:separate;border-spacing:4px;width:100%;min-width:640px}
+th{font-size:12px;color:var(--muted);font-weight:600;padding:6px 2px}
+td.t{font-size:12px;color:var(--muted);white-space:nowrap;padding:0 8px;text-align:right}
+.c{width:100%;height:34px;border:0;border-radius:8px;color:#fff;font-size:11px;font-weight:600;cursor:default}
+.c.free{background:var(--green)}
+.c.busy{background:var(--red)}
+.edit .c{cursor:pointer}
+.edit .c:hover{filter:brightness(1.1);outline:2px solid var(--fg);outline-offset:1px}
+.upd{font-size:13px;color:var(--muted);margin-bottom:12px}
+.msg{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
+</style>
+<link type="text/css" rel="stylesheet" id="dark-mode-custom-link"><link type="text/css" rel="stylesheet" id="dark-mode-general-link"><style lang="en" type="text/css" id="dark-mode-custom-style"></style><style lang="en" type="text/css" id="dark-mode-native-style"></style><style lang="en" type="text/css" id="dark-mode-native-sheet"></style><link type="text/css" rel="stylesheet" id="dark-mode-custom-link"><link type="text/css" rel="stylesheet" id="dark-mode-general-link"><style lang="en" type="text/css" id="dark-mode-custom-style"></style><style lang="en" type="text/css" id="dark-mode-native-style"></style><style lang="en" type="text/css" id="dark-mode-native-sheet"></style><link type="text/css" rel="stylesheet" id="dark-mode-custom-link"><link type="text/css" rel="stylesheet" id="dark-mode-general-link"><style lang="en" type="text/css" id="dark-mode-custom-style"></style><style lang="en" type="text/css" id="dark-mode-native-style"></style><style lang="en" type="text/css" id="dark-mode-native-sheet"></style></head>
+<body>
+<div class="wrap">
+  <h1>🏋️ Jadwal Gym</h1>
+  <div class="sub">Setiap hari pukul 06.00 – 21.00 · <span style="color:var(--green);font-weight:600">Hijau</span> = kosong, <span style="color:var(--red);font-weight:600">Merah</span> = terisi</div>
+  <div id="app"></div>
+</div>
+<script type="application/json" id="state">{"booked":["0-13","0-6","1-10","1-12","1-7","1-8","1-9","2-13","2-7","2-8","2-9","3-12","3-8","3-9","4-13","4-14","4-7","5-12","5-6","5-7","6-10","6-13","6-8","6-9"],"updated":"2026-10-08T05:42:07.744Z"}</script>
+<script>
+(function(){
+var DAYS=["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
+var START=6,END=21;
+var state=JSON.parse(document.getElementById("state").textContent);
+var booked=new Set(state.booked||[]);
+var owner=false,editing=false,dirty=false,art=null,msg="",saving=false;
+var app=document.getElementById("app");
+var updated=state.updated||null;
+function pad(n){return (n<10?"0":"")+n}
+function fmtUpdated(){
+  if(!updated)return "Belum pernah diperbarui";
+  try{
+    var d=new Date(updated);
+    return "Terakhir diperbarui: "+d.toLocaleString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  }catch(e){return "Terakhir diperbarui: "+updated}
+}
+function render(){
+  var total=7*(END-START),b=booked.size;
+  var h='<div class="upd">🕒 '+fmtUpdated()+'</div><div class="bar">'+
+    '<div class="stat"><span class="dot" style="background:var(--red)"></span>Terisi <b>'+b+'</b> jam</div>'+
+    '<div class="stat"><span class="dot" style="background:var(--green)"></span>Kosong <b>'+(total-b)+'</b> jam</div><div class="sp"></div>';
+  if(owner&&art){
+    if(!editing) h+='<button class="btn" id="e">Edit jadwal</button>';
+    else h+='<button class="btn ghost" id="x">Batal</button><button class="btn" id="s"'+(dirty&&!saving?'':' disabled')+'>'+(saving?'Menyimpan…':'Simpan')+'</button>';
+  }
+  h+='</div><div class="scroll'+(editing?' edit':'')+'"><table><thead><tr><th></th>';
+  DAYS.forEach(function(d){h+='<th>'+d+'</th>'});
+  h+='</tr></thead><tbody>';
+  for(var hr=START;hr<END;hr++){
+    h+='<tr><td class="t">'+pad(hr)+'.00–'+pad(hr+1)+'.00</td>';
+    for(var d=0;d<7;d++){
+      var k=d+"-"+hr,on=booked.has(k);
+      h+='<td><button class="c '+(on?'busy':'free')+'" data-k="'+k+'" aria-label="'+DAYS[d]+' '+pad(hr)+'.00 '+(on?'terisi':'kosong')+'"'+(editing?'':' tabindex="-1"')+'>'+(on?'Terisi':'')+'</button></td>';
+    }
+    h+='</tr>';
+  }
+  h+='</tbody></table></div><div class="msg">'+msg+'</div>';
+  app.innerHTML=h;
+}
+var snapshot=null;
+app.addEventListener("click",function(ev){
+  var t=ev.target;
+  if(t.id==="e"){editing=true;dirty=false;msg="Klik kotak untuk mengubah merah/hijau, lalu tekan Simpan.";snapshot=new Set(booked);render();return}
+  if(t.id==="x"){editing=false;dirty=false;booked=snapshot||booked;msg="";render();return}
+  if(t.id==="s"){save();return}
+  if(editing&&t.dataset&&t.dataset.k){
+    var k=t.dataset.k;
+    if(booked.has(k))booked.delete(k);else booked.add(k);
+    dirty=true;msg="";render();
+  }
+});
+function buildDoc(){
+  var c=document.documentElement.cloneNode(true);
+  c.querySelector("#app").innerHTML="";
+  c.querySelector("#state").textContent=JSON.stringify({booked:Array.from(booked).sort(),updated:new Date().toISOString()});
+  return "<!doctype html>\n"+c.outerHTML;
+}
+function save(){
+  if(!art||saving)return;
+  saving=true;msg="";render();
+  art.publish(buildDoc()).catch(function(e){
+    saving=false;
+    msg=(e&&e.code==="not_writer"||e&&e.code==="not_granted")?"Hanya pemilik yang bisa mengubah jadwal.":"Gagal menyimpan, coba lagi.";
+    render();
+  });
+}
+render();
+(async function(){
+  try{
+    var u=await claude.use("user");
+    owner=!!(u&&u.isOwner());
+    art=await claude.use("artifact");
+  }catch(e){owner=false}
+  render();
+})();
+})();
+</script>
+
+
+</body></html>
